@@ -1,0 +1,78 @@
+#! /bin/sh
+
+# Split the current StGit patch in two.
+#
+# Run "stg edit --diff", let the user remove parts of the patch, put the
+# removed changes to a separate StGit patch, let the user describe it.
+#
+# To streamline splitting a patch into more than two parts, it is suggested
+# to remove all changes except those that belong to a single patch. Then split
+# the new top patch the same way.
+#
+# To fine tune the resulting patches, "stg pop" to the patch to be adjusted,
+# edit the code, refresh the patch and run "stg push --set-tree" so that the
+# next patch takes the changes in reverse, keeping the final code unchanged.
+
+set -e -u
+
+# Write error to stderr and exit with non-zero error code
+fatal() {
+  echo "$@" >&2
+  exit 1
+}
+
+# Sanity checks
+
+if ! git rev-parse HEAD >/dev/null; then
+  fatal "Not in a git repository"
+fi
+
+if ! top_dir=$(git rev-parse --show-toplevel); then
+  fatal "Cannot find top-level git directory"
+fi
+
+if ! cd "$top_dir"; then
+  fatal "Cannot change to the top-level git directory"
+fi
+
+if ! git diff --quiet; then
+  fatal "Unsupported case: unstaged changes found"
+fi
+
+if ! git diff --quiet --staged; then
+  fatal "Unsupported case: staged changes found"
+fi
+
+if ! patch_name=$(stg top) >/dev/null; then
+  fatal "No current StGit patch detected"
+fi
+
+if git diff --quiet HEAD^ HEAD; then
+  fatal "Unsupported case: patch $patch_name is empty"
+fi
+
+# Copy the top patch to an unapplied copy
+if ! stg pick --unapplied --name="$patch_name" "$patch_name"; then
+  fatal "Cannot duplicate patch $patch_name"
+fi
+
+# Edit the first patch
+hash_old=$(stg id)
+stg edit --diff
+hash_new=$(stg id)
+
+if test "$hash_old" = "$hash_new"; then
+  echo "No changes made to the patch"
+  exit 0
+fi
+
+if git diff --quiet "$hash_old" "$hash_new"; then
+  echo "No changes made to the sources"
+  exit 0
+fi
+
+# Push the second patch, keep the final tree
+stg push --set-tree
+
+# Edit the second patch
+stg edit --diff

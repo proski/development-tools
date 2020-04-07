@@ -1,2 +1,1 @@
-# development-tools
-Random development scripts, moved from gists
+This repository contains random scripts that used to be published as gists.

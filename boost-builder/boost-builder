@@ -1,0 +1,35 @@
+#!/bin/sh
+
+# Build Boost using given parameters
+
+set -e
+
+# clang or gcc
+: ${TOOLSET="clang"}
+
+# C++ standard: 11, 14, 17
+: ${STDCXX="14"}
+
+# libc++ (clang only) or libstdc++
+: ${LIBCXX="libstdc++"}
+
+BOOST_VERSION=`sed -n 's/^constant BOOST_VERSION : \([-0-9._]\+\).*/\1/p' Jamroot`
+
+if test -z "$BOOST_VERSION"; then
+  echo "Cannot find Boost version" >&2
+  exit 1
+fi
+
+: ${INSTALL_DIR="/opt/boost-$BOOST_VERSION-$LIBCXX"}
+
+if test "$TOOLSET" = "clang"; then
+  cxxflags="-std=c++$STDCXX -stdlib=$LIBCXX"
+else
+  cxxflags="-std=c++$STDCXX"
+fi
+
+./bootstrap.sh --with-toolset=$TOOLSET --prefix=$INSTALL_DIR
+./b2 clean --reconfigure
+./b2 cxxflags="$cxxflags" linkflags="$cxxflags" -j $(nproc) stage release
+
+echo 'Compilation successful. To install, run: "sudo ./b2 install"'

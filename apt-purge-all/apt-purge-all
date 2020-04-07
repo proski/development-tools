@@ -1,0 +1,9 @@
+#! /bin/sh
+
+# Purge all uninstalled packages on Debian based system
+
+# Safety considerations:
+# - all packages are passed to "apt-get purge" with versions
+# - "apt-get purge" asks confirmation
+
+apt-get purge $(dpkg -l | awk '$1 == "rc" {print $2"="$3}')

@@ -1,0 +1,198 @@
+#! /usr/bin/env python
+
+"""
+Share network connection, possibly run a WPA2-PSK or open access point
+
+Make sure the downstream interface is listed as unmanaged in
+/etc/NetworkManager/NetworkManager.conf
+
+[keyfile]
+unmanaged-devices=mac:MACADDRESS
+
+TODO:
+
+Write documentation. Be careful what is stopped and flushed on "stop".
+Clean up running daemons on failure.
+"""
+
+from __future__ import absolute_import, print_function
+
+import os
+import subprocess
+import sys
+import time
+
+
+def fatal(*msg):
+    """Print message to stderr and exit with an error code"""
+    print(*msg, file=sys.stderr)
+    sys.exit(1)
+
+
+def run(prog):
+    """Run a command, check return status, exit if failed"""
+    try:
+        subprocess.check_call(prog)
+    except subprocess.CalledProcessError as exc:
+        fatal(prog[0], 'failed with code', exc.returncode)
+
+
+def run_nocheck(prog):
+    """Run a command, ignore return status"""
+    subprocess.call(prog)
+
+
+def upstream_intf():
+    """Find upstream network interfaces"""
+
+    try:
+        out = subprocess.check_output(['ip', 'route', 'list', 'scope',
+                                       'global']).decode('utf-8')
+    except OSError:
+        fatal('Cannot run "ip"')
+    except subprocess.CalledProcessError as exc:
+        fatal('"ip" failed with code', exc.returncode)
+
+    intf = []
+    for line in out.split('\n'):
+        tokens = line.split()
+        if len(tokens) >= 5 and tokens[3] == 'dev':
+            intf.append(tokens[4])
+            break
+    if len(intf) == 0:
+        fatal('No default gateway found')
+    elif len(intf) > 1:
+        fatal('Cannot handle multiple upstream interfaces:', ', '.join(intf))
+
+    return intf[0]
+
+
+def find_nameservers():
+    """Return list of nameservers"""
+    nameservers = []
+    with open('/etc/resolv.conf', 'r') as resolv:
+        for line in resolv:
+            tokens = line.split()
+            if tokens[0] != 'nameserver':
+                continue
+            if len(tokens) != 2:
+                fatal('Unsupported nameserver line:\n', line)
+            nameserver = tokens[1]
+            # Server's local DNS won't serve remote clients
+            if nameserver.startswith('127.'):
+                continue
+            nameservers.append(nameserver)
+    if not nameservers:
+        # Just use Google DNS
+        nameservers = ['8.8.4.4', '8.8.8.8']
+    return nameservers
+
+
+def dhcpd_mkconfig(dhcpd_conf, netbase):
+    """Create dhcpd configuration file"""
+
+    dns = ', '.join(find_nameservers())
+    dhcpd_template = (
+        'option domain-name-servers {dns};\n'
+        'subnet {netbase}.0 netmask 255.255.255.0 {{\n'
+        '  range {netbase}.2 {netbase}.254;\n'
+        '  option routers {netbase}.1;\n'
+        '}}\n')
+    with open(dhcpd_conf, 'w') as cfile:
+        cfile.write(dhcpd_template.format(netbase=netbase, dns=dns))
+
+
+def hostapd_mkconfig(hostapd_conf, intf, essid, channel, psk):
+    """Create hostapd configuration file"""
+
+    if channel > 14:
+        band = 'a'
+    else:
+        band = 'g'
+
+    hostapd_template = (
+        'interface={intf}\n'
+        'driver=nl80211\n'
+        'ssid={essid}\n'
+        'channel={channel}\n'
+        'hw_mode={band}\n'
+        'macaddr_acl=0\n'
+        'auth_algs=1\n'
+        'ignore_broadcast_ssid=0\n')
+    if psk:
+        hostapd_template += (
+            'wpa=2\n'
+            'wpa_passphrase={psk}\n'
+            'wpa_key_mgmt=WPA-PSK\n'
+            'wpa_pairwise=CCMP\n'
+            'rsn_pairwise=CCMP\n')
+
+    with open(hostapd_conf, 'w') as cfile:
+        cfile.write(hostapd_template.format(intf=intf, essid=essid,
+                                            channel=str(channel), band=band,
+                                            psk=psk))
+
+
+def stop_service():
+    """Kill daemons, flush iptables"""
+
+    run_nocheck(['killall', 'dhcpd'])
+    run_nocheck(['killall', 'hostapd'])
+    run(['iptables', '-t', 'nat', '--flush'])
+    run(['iptables', '-t', 'filter', '--flush', 'FORWARD'])
+
+
+def main():
+    """Main function"""
+
+    if len(sys.argv) not in (2, 4, 5):
+        fatal('Usage:\n'
+              '    netgenerous INTERFACE [ESSID CHANNEL [PSK]]\n'
+              '    netgenerous stop')
+
+    if os.geteuid() != 0:
+        fatal('netgenerous should be run as root')
+
+    (intf, essid, channel, psk) = sys.argv[1:] + (5 - len(sys.argv)) * [None]
+
+    if intf == 'stop':
+        stop_service()
+        sys.exit(0)
+
+    if essid:
+        try:
+            channel = int(channel)
+        except ValueError:
+            fatal('Invalid channel:', channel)
+
+    upstream = upstream_intf()
+    if intf == upstream:
+        fatal('Cannot use upstream interface', intf)
+
+    # Wireless network address stub
+    netbase = '192.168.90'
+
+    dhcpd_conf = '/etc/dhcp/dhcpd-' + intf + '.conf'
+    if essid:
+        hostapd_pidf = '/var/run/hostapd-' + intf + '.pid'
+        hostapd_conf = '/etc/hostapd/hostapd-' + intf + '.conf'
+
+    stop_service()
+    run(['ifconfig', intf, 'down'])
+
+    # Wait for interface to leave master mode
+    time.sleep(.2)
+
+    if essid:
+        hostapd_mkconfig(hostapd_conf, intf, essid, channel, psk)
+        run(['hostapd', '-B', '-P', hostapd_pidf, hostapd_conf])
+    run(['ifconfig', intf, netbase + '.1'])
+    dhcpd_mkconfig(dhcpd_conf, netbase)
+    run(['dhcpd', '--no-pid', '-cf', dhcpd_conf, intf])
+    run(['iptables', '-t', 'nat', '-A', 'POSTROUTING', '-o', upstream, '-s',
+         netbase + '.0/24', '-j', 'MASQUERADE'])
+    run(['sysctl', 'net.ipv4.ip_forward=1'])
+
+
+if __name__ == '__main__':
+    main()

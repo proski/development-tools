@@ -1,0 +1,56 @@
+#! /bin/sh
+
+# Bind filesystems mounted on subdirectories of the source directory to
+# the corresponding points under the target directory
+#
+# Typical use when booted from removable media to rescue a system:
+#
+# mkdir /mnt/linux
+# mount /dev/sda2 /mnt/linux
+# bindmounts / /mnt/linux
+# chroot /mnt/linux
+# update-grub
+# exit
+# reboot
+
+if test "$#" != 2; then
+	echo "Usage: bindmounts source target" 2>&1
+	exit 1
+fi
+
+SRC="$1"
+TGT="$2"
+
+if test ! -d "$SRC"; then
+	echo "$SRC missing" 2>&1
+	exit 1
+fi
+if test ! -d "$TGT"; then
+	echo "$TGT missing" 2>&1
+	exit 1
+fi
+
+mounts=$(mount | cut -f3 -d' ')
+
+for point in $mounts; do
+	if test $point = '/'; then
+		continue
+	fi
+	case $point in
+		$TGT*) continue
+	esac
+	if test ! -d "$point"; then
+		echo "$point is missing" 2>&1
+		continue
+	fi
+	newpoint=$(echo "$point" | sed -n "s%^$SRC%$TGT/%p" | sed "s%/\+%/%g")
+	if test -z "$newpoint"; then
+		continue
+	fi
+	if test ! -d "$newpoint"; then
+		echo "$newpoint is missing" 2>&1
+		continue
+	fi
+	echo "$point -> $newpoint"
+	mount --bind "$point" "$newpoint"
+done

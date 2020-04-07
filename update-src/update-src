@@ -1,0 +1,81 @@
+#! /bin/sh
+
+# Update all sources in $HOME/src or in directories passed as arguments
+
+set -e -u
+
+init_dir="$(pwd)"
+
+if test "$#" = 0; then
+  set "$HOME/src"
+fi
+
+git_dirs="$(find "$@" -maxdepth 4 -name .git | sed 's/\.git$//' | sort)"
+
+trap 'echo Terminated; cd "$init_dir"; exit' INT
+
+update_stgit() {
+  # Don't update the work directory if STGit is active. A failure in
+  # "stg pull" can result in a bad state that cannot be recovered by
+  # "stg undo".
+  git fetch --all --prune --tags
+}
+
+update_git() {
+  # Workarounds for git 1.9.1
+  git fetch --all --prune --tags
+  git -c merge.defaultToUpstream=true merge --ff-only
+}
+
+update_cvs() {
+  cvs -z3 -q update -P -d
+}
+
+update_bzr() {
+  bzr pull
+}
+
+update_hg() {
+  hg pull -u
+}
+
+update_svn() {
+  find . -type d -name .svn | sed 's,/\.svn,,' | xargs svn up
+}
+
+for d in $git_dirs; do
+  # Start in the initial directory to support relative paths
+  cd "$init_dir"
+
+  # Skip non-directories
+  test -d "$d" || continue
+
+  # Skip symlinks, e.g. "source" links in Linux binary trees
+  test -L "$(dirname "$d/.")" && continue
+
+  # Skip inaccessible directories
+  cd "$d" || continue
+
+  if test -e .git && test -n "$(git remote)"; then
+    if stg series >/dev/null 2>&1; then
+      cmd="update_stgit"
+    else
+      cmd="update_git"
+    fi
+  elif test -d CVS; then
+    cmd="update_cvs"
+  elif test -d .bzr; then
+    cmd="update_bzr"
+  elif test -d .svn; then
+    cmd="update_svn"
+  elif test -d .hg; then
+    cmd="update_hg"
+  else
+    continue
+  fi
+
+  echo "updating $d" >&2
+  eval $cmd || :
+done
+
+cd "$init_dir"

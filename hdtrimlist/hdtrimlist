@@ -1,0 +1,30 @@
+#! /bin/sh
+
+# Make a list of ranges for hdparm --trim-sector-ranges-stdin
+# Use this only if blkdiscard is not available or not suitable.
+#
+# Example:
+# 'sfdisk -uS -l /dev/sdb' shows /dev/sdb3 starts at sector 5000 and has
+# 1000 sectors. To trim all sectors on /dev/sdb3, run
+# hdtrimlist 1000 5000 | \
+# hdparm --trim-sector-ranges-stdin --please-destroy-my-drive /dev/sdb
+#
+# Please be extremely careful with this utility!
+
+# Maximal number of sectors in a range, adjust if needed
+: ${MAXSECT=65535}
+
+test $# = 2 || { echo "Usage: hdtrimlist sectors offset" >&2; exit 1; }
+
+sectors=$1
+pos=$2
+while test $sectors -gt 0; do
+	if test $sectors -gt $MAXSECT; then
+		size=$MAXSECT
+	else
+		size=$sectors
+	fi
+	echo $pos:$size
+	sectors=$(($sectors-$size))
+	pos=$(($pos+$size))
+done
