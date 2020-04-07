@@ -51,8 +51,22 @@ if git diff --quiet HEAD^ HEAD; then
   fatal "Unsupported case: patch $patch_name is empty"
 fi
 
+# Generate a unique name for the new patch
+patch_base_name=$(echo "$patch_name" | sed 's/-[0-9]*$//')
+
+i=1
+while true; do
+  new_patch_name="$patch_base_name-$i"
+  if stg new -m "" "$new_patch_name" 2>/dev/null; then
+    break
+  fi
+  i=$(($i+1))
+done
+
+stg delete "$new_patch_name" 2>/dev/null
+
 # Copy the top patch to an unapplied copy
-if ! stg pick --unapplied --name="$patch_name" "$patch_name"; then
+if ! stg pick --unapplied --name="$new_patch_name" "$patch_name"; then
   fatal "Cannot duplicate patch $patch_name"
 fi
 
@@ -72,7 +86,7 @@ if git diff --quiet "$hash_old" "$hash_new"; then
 fi
 
 # Push the second patch, keep the final tree
-stg push --set-tree
+stg push --set-tree "$new_patch_name"
 
 # Edit the second patch
 stg edit --diff
