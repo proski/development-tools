@@ -1,0 +1,43 @@
+#! /bin/bash
+
+# Enable TRIM command on all detected UASP devices.
+# This can be dangerous, make sure to backup all data on the affected disks!
+#
+# Successfully tested adapters (no guarantee!):
+#
+# Orico 2139C3-R1.0
+# Cable Matters 201079
+
+set -e -u
+
+UASP_ROOT="/sys/bus/usb/drivers/uas"
+DISK_PATTERN="*/host*/target*/*/block/sd*/device/scsi_disk/*/provisioning_mode"
+UASP_DEVICES=($UASP_ROOT/$DISK_PATTERN)
+
+case "${#UASP_DEVICES[@]}" in
+	0) echo "No UASP devices found"; exit 1 ;;
+esac
+
+for dev in "${UASP_DEVICES[@]}"; do
+	echo "Device: $dev"
+	echo "Mode: $(cat "$dev")"
+done
+
+echo ""
+echo "Make sure both the disk and the USB adapter support TRIM command!"
+echo "Otherwise, all data on the disk can be lost!"
+echo "Also make sure you are allowed to use sudo."
+echo "Enter YES to enable TRIM, otherwise this script will exit."
+echo ""
+read -r yes
+
+case "$yes" in
+	YES) ;;
+	*) echo "Exiting without making any changes"; exit 1 ;;
+esac
+
+for dev in "${UASP_DEVICES[@]}"; do
+	echo "Device: $dev"
+	sudo dd status=none of="$dev" <<< "unmap"
+	echo "New mode: $(cat "$dev")"
+done
