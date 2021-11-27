@@ -1,0 +1,6 @@
+PDF Dispatch selects the best PDF viewer for the file.
+
+For instance, a particular PDF viewer can be configured to print files to
+a specific printer with specific settings.
+
+Use PDF Dispatch from a browser to make PDF viewer selection automatic.

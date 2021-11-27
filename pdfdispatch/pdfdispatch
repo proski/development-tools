@@ -1,0 +1,17 @@
+#! /bin/sh
+
+# Select PDF viewer based on the PDF document
+
+LABEL_VIEWER="xreader"
+DEFAULT_VIEWER="evince"
+
+VIEWER="$DEFAULT_VIEWER"
+
+case "$*" in
+   *labels-*)
+       VIEWER="$LABEL_VIEWER" ;;
+   *label_*)
+       VIEWER="$LABEL_VIEWER" ;;
+esac
+
+exec "$VIEWER" "$@"

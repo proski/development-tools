@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=PDF Dispatch
+Comment=Select PDF viewer based on the document
+TryExec=pdfdispatch
+Exec=pdfdispatch %U
+StartupNotify=true
+Terminal=false
+Type=Application
+Icon=xreader
+Categories=GTK;Utility;Viewer;
+Keywords=document;viewer;pdf;
+MimeType=application/pdf;
