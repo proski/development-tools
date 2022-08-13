@@ -57,17 +57,20 @@ patch_base_name=$(echo "$patch_name" | sed 's/-[0-9]*$//')
 i=1
 while true; do
   new_patch_name="$patch_base_name-$i"
-  if stg new -m "" "$new_patch_name" 2>/dev/null; then
+  if stg new -m "$new_patch_name" "$new_patch_name" 2>/dev/null; then
     break
   fi
-  i=$(($i+1))
+  i=$((i+1))
 done
 
 stg delete "$new_patch_name" 2>/dev/null
 
 # Copy the top patch to an unapplied copy
-if ! stg pick --unapplied --name="$new_patch_name" "$patch_name"; then
-  fatal "Cannot duplicate patch $patch_name"
+if ! stg pick --noapply --name="$new_patch_name" "$patch_name"; then
+  # Fallback for StGit 1.x: try --unapplied instead of --noapply
+  if ! stg pick --unapplied --name="$new_patch_name" "$patch_name"; then
+    fatal "Cannot duplicate patch $patch_name"
+  fi
 fi
 
 # Edit the first patch
