@@ -1,0 +1,56 @@
+#! /bin/sh
+
+# Spell check the new code and the commit messages in a pull request.
+# The PR branch must be rebased on top of the target branch.
+
+set -e -u
+
+usage() {
+  echo "Usage: spellcheck-pr [BRANCH]"
+  exit 0
+}
+
+case $# in
+  0) source_branch="HEAD" ;;
+  1) source_branch="origin/$1" ;;
+  *) usage ;;
+esac
+
+# Make sure we are in a git repository
+top_dir=$(git rev-parse --show-toplevel)
+
+if test -z "$top_dir"; then
+  # git must have shown an error already
+  exit 1
+fi
+
+# Possible names of the target branch
+TARGET_NAMES="HEAD master main"
+
+good_target_branch=
+for t in $TARGET_NAMES; do
+  if ! git rev-parse --verify --quiet "origin/$t" -- >/dev/null; then
+    continue
+  fi
+
+  target_branch="origin/$t"
+  target_hash="$(git rev-parse "$target_branch")"
+  merge_base_hash="$(git merge-base "$source_branch" "$target_branch")"
+  if test "$target_hash" = "$merge_base_hash"; then
+    good_target_branch=1
+    break
+  fi
+done
+
+if test "$good_target_branch" != 1; then
+  echo "Cannot guess the target branch" >&2
+  exit 1
+fi
+
+revision_range="$target_branch..$source_branch"
+
+echo "*** Revision range: $revision_range"
+echo "*** Spell checking the code"
+git diff "$revision_range" -- | sed -n '/^+++ /d;s/^+//p' | spellcheck-code
+echo "*** Spell checking the commit messages"
+git log "$revision_range" -- | grep '^ ' | spellcheck-code
