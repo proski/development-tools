@@ -15,9 +15,10 @@ git_dirs="$(find "$@" -maxdepth 4 -name .git | sed 's/\.git$//' | sort)"
 trap 'echo Terminated; cd "$init_dir"; exit' INT
 
 update_stgit() {
-  # Don't update the work directory if STGit is active. A failure in
+  # Don't update the work directory if StGit is active. A failure in
   # "stg pull" can result in a bad state that cannot be recovered by
   # "stg undo".
+  echo "applied StGit patched found, not updating working directory"
   git fetch --all --prune --tags
 }
 
@@ -57,7 +58,8 @@ for d in $git_dirs; do
   cd "$d" || continue
 
   if test -e .git && test -n "$(git remote)"; then
-    if stg series >/dev/null 2>&1; then
+    patch_count=$(stg series --applied --count 2>/dev/null) || patch_count=0
+    if test "$patch_count" != 0; then
       cmd="update_stgit"
     else
       cmd="update_git"
