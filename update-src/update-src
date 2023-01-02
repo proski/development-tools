@@ -18,7 +18,7 @@ update_stgit() {
   # Don't update the work directory if StGit is active. A failure in
   # "stg pull" can result in a bad state that cannot be recovered by
   # "stg undo".
-  echo "applied StGit patched found, not updating working directory"
+  echo "applied StGit patches found, not updating working directory"
   git fetch --all --prune --tags
 }
 
