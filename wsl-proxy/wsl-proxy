@@ -1,0 +1,16 @@
+#! /bin/sh
+
+# Set up the Windows host as a proxy for WSL
+
+# Requirements:
+#    The Windows host should run openssh server
+#    ~/.ssh/config should have a line "Include config-proxy"
+
+SOCKS_PORT=1080
+PROXY_NAME=windows-host
+
+host_ip=$(ip route list default | cut -d ' ' -f 3)
+echo "Host $PROXY_NAME
+Hostname $host_ip" > ~/.ssh/config-proxy
+
+ssh -f -N -D $SOCKS_PORT $PROXY_NAME
