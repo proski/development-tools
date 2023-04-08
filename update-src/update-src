@@ -19,12 +19,12 @@ update_stgit() {
   # "stg pull" can result in a bad state that cannot be recovered by
   # "stg undo".
   echo "applied StGit patches found, not updating working directory"
-  git fetch --all --prune --tags
+  git fetch --all --prune --tags --recurse-submodules
 }
 
 update_git() {
   # Workarounds for git 1.9.1
-  git fetch --all --prune --tags
+  git fetch --all --prune --tags --recurse-submodules
   git -c merge.defaultToUpstream=true merge --ff-only
 }
 
