@@ -4,7 +4,7 @@
 
 # Recognize and skip backslash sequences in strings.
 # Ignore hexadecimal numbers.
-# Ignore SHA-1 hashes.
+# Ignore SHA-1 and longer hexadecimal hashes.
 # Ignore tagged base64-encoded SHA hashes.
 # Split CamelCase words.
 
@@ -12,7 +12,7 @@ export LC_ALL=en_US.UTF-8
 
 sed '/"/s/\\[nst]/ /g' "$@" | \
 sed 's/\<0[xX][0-9A-Fa-f]\+U\?L\?L\?\>/ /g' | \
-sed 's/\<[0-9a-f]\{40\}\>/ /g' | \
+sed 's/\<[0-9a-f]\{40,\}\>/ /g' | \
 sed 's/sha[1-9][0-9]\+-[A-Za-z0-9+/]\+/ /g' | \
 sed 's/\(.\)\([A-Z][a-z]\+\)/\1 \2/g;s/\([a-z0-9]\)\([A-Z]\)/\1 \2/g' | \
 aspell --lang=en_US list | \
