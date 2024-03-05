@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /usr/bin/env bash
 
 # Enable TRIM command on all detected UASP devices.
 # This can be dangerous, make sure to backup all data on the affected disks!
