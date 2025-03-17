@@ -1,0 +1,28 @@
+#! /usr/bin/env python3
+
+"""
+Reindent in place all JSON files on the command line
+"""
+
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+INDENT = 2
+SORT_KEYS = True
+
+for arg in sys.argv[1:]:
+    input_file = Path(arg)
+    with input_file.open("r", encoding="utf-8") as input_stream:
+        json_data = json.load(input_stream)
+
+    input_dir = input_file.parent
+    with tempfile.TemporaryDirectory(dir=input_dir) as tmp_dir:
+        with tempfile.NamedTemporaryFile(
+            delete=False, mode="w", dir=tmp_dir
+        ) as output_stream:
+            output_file = Path(output_stream.name)
+            json.dump(json_data, output_stream, indent=INDENT, sort_keys=SORT_KEYS)
+            output_stream.write("\n")
+        output_file.replace(input_file)
