@@ -37,7 +37,7 @@ for point in $mounts; do
 		continue
 	fi
 	case $point in
-		$TGT*) continue
+	$TGT*) continue ;;
 	esac
 	if test ! -d "$point"; then
 		echo "$point is missing" 2>&1

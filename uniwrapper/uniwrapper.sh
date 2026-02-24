@@ -15,18 +15,18 @@ trap 'rm -f $STDOUT $STDERR; exit' INT
 LOGDIR=$(dirname $LOG)
 mkdir -p "$LOGDIR"
 
-date >> "$LOG"
-echo "Directory: $PWD" >> "$LOG"
-echo "$@" >> "$LOG"
+date >>"$LOG"
+echo "Directory: $PWD" >>"$LOG"
+echo "$@" >>"$LOG"
 
 $INNER_PROGNAME "$@" >"$STDOUT" 2>"$STDERR"
 
 rc=$?
 cat "$STDOUT"
-cat "$STDERR" >> "$LOG"
-echo "Return: $rc" >> "$LOG"
+cat "$STDERR" >>"$LOG"
+echo "Return: $rc" >>"$LOG"
 cat "$STDERR" >&2
-echo "---------------------------------" >> "$LOG"
+echo "---------------------------------" >>"$LOG"
 
 rm -f "$STDOUT" "$STDERR"
 exit $rc

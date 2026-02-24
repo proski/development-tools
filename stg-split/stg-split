@@ -17,38 +17,38 @@ set -e -u
 
 # Write error to stderr and exit with non-zero error code
 fatal() {
-  echo "$@" >&2
-  exit 1
+	echo "$@" >&2
+	exit 1
 }
 
 # Sanity checks
 
 if ! git rev-parse HEAD >/dev/null; then
-  fatal "Not in a git repository"
+	fatal "Not in a git repository"
 fi
 
 if ! top_dir=$(git rev-parse --show-toplevel); then
-  fatal "Cannot find top-level git directory"
+	fatal "Cannot find top-level git directory"
 fi
 
 if ! cd "$top_dir"; then
-  fatal "Cannot change to the top-level git directory"
+	fatal "Cannot change to the top-level git directory"
 fi
 
 if ! git diff --quiet; then
-  fatal "Unsupported case: unstaged changes found"
+	fatal "Unsupported case: unstaged changes found"
 fi
 
 if ! git diff --quiet --staged; then
-  fatal "Unsupported case: staged changes found"
+	fatal "Unsupported case: staged changes found"
 fi
 
 if ! patch_name=$(stg top) >/dev/null; then
-  fatal "No current StGit patch detected"
+	fatal "No current StGit patch detected"
 fi
 
 if git diff --quiet HEAD^ HEAD; then
-  fatal "Unsupported case: patch $patch_name is empty"
+	fatal "Unsupported case: patch $patch_name is empty"
 fi
 
 # Generate a unique name for the new patch
@@ -56,21 +56,21 @@ patch_base_name=$(echo "$patch_name" | sed 's/-[0-9]*$//')
 
 i=1
 while true; do
-  new_patch_name="$patch_base_name-$i"
-  if stg new -m "$new_patch_name" "$new_patch_name" 2>/dev/null; then
-    break
-  fi
-  i=$((i+1))
+	new_patch_name="$patch_base_name-$i"
+	if stg new -m "$new_patch_name" "$new_patch_name" 2>/dev/null; then
+		break
+	fi
+	i=$((i + 1))
 done
 
 stg delete "$new_patch_name" 2>/dev/null
 
 # Copy the top patch to an unapplied copy
 if ! stg pick --noapply --name="$new_patch_name" "$patch_name"; then
-  # Fallback for StGit 1.x: try --unapplied instead of --noapply
-  if ! stg pick --unapplied --name="$new_patch_name" "$patch_name"; then
-    fatal "Cannot duplicate patch $patch_name"
-  fi
+	# Fallback for StGit 1.x: try --unapplied instead of --noapply
+	if ! stg pick --unapplied --name="$new_patch_name" "$patch_name"; then
+		fatal "Cannot duplicate patch $patch_name"
+	fi
 fi
 
 # Edit the first patch
@@ -79,13 +79,13 @@ stg edit --diff
 hash_new=$(stg id)
 
 if test "$hash_old" = "$hash_new"; then
-  echo "No changes made to the patch"
-  exit 0
+	echo "No changes made to the patch"
+	exit 0
 fi
 
 if git diff --quiet "$hash_old" "$hash_new"; then
-  echo "No changes made to the sources"
-  exit 0
+	echo "No changes made to the sources"
+	exit 0
 fi
 
 # Push the second patch, keep the final tree

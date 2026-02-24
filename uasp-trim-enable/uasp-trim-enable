@@ -15,7 +15,10 @@ DISK_PATTERN="*/host*/target*/*/block/sd*/device/scsi_disk/*/provisioning_mode"
 UASP_DEVICES=($UASP_ROOT/$DISK_PATTERN)
 
 case "${#UASP_DEVICES[@]}" in
-	0) echo "No UASP devices found"; exit 1 ;;
+0)
+	echo "No UASP devices found"
+	exit 1
+	;;
 esac
 
 for dev in "${UASP_DEVICES[@]}"; do
@@ -32,12 +35,15 @@ echo ""
 read -r yes
 
 case "$yes" in
-	YES) ;;
-	*) echo "Exiting without making any changes"; exit 1 ;;
+YES) ;;
+*)
+	echo "Exiting without making any changes"
+	exit 1
+	;;
 esac
 
 for dev in "${UASP_DEVICES[@]}"; do
 	echo "Device: $dev"
-	sudo dd status=none of="$dev" <<< "unmap"
+	sudo dd status=none of="$dev" <<<"unmap"
 	echo "New mode: $(cat "$dev")"
 done
