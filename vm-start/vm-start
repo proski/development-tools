@@ -1,17 +1,12 @@
 #! /bin/sh
 
-MAC="3A:6A:6D:B2:AD:9E"
-UUID="CCC397BD-3142-469D-A5C7-D31355CF764F"
-DISK_ID="D1758C6AA9AD48EDA9C9"
-
 exec /opt/homebrew/bin/qemu-system-aarch64 \
-	-nodefaults -vga none -device virtio-net-pci,mac="$MAC",netdev=net0 \
-	-netdev user,id=net0,hostfwd=tcp::2022-:22 -nographic -cpu host -smp cpus=12,sockets=1,cores=12,threads=1 \
-	-machine virt,gic-version=3 -accel hvf \
-	-drive if=pflash,format=raw,unit=0,file.filename=/opt/homebrew/share/qemu/edk2-aarch64-code.fd,file.locking=off,readonly=on \
-	-drive if=pflash,unit=1,file.filename=/usr/local/vm/efi_vars.fd \
-	-m 32768 -audio none \
-	-device virtio-blk-pci,drive=VDA0,serial="$DISK_ID",bootindex=0 \
+	-machine virt,gic-version=3 -accel hvf -m 32768 -cpu host -smp cpus=12,sockets=1,cores=12,threads=1 \
+	-nodefaults -nographic -vga none -audio none \
+	-device virtio-net-pci,netdev=net0 -netdev user,id=net0,hostfwd=tcp::2022-:22 \
+	-device virtio-rng-pci \
+	-device virtio-blk-pci,drive=VDA0,bootindex=0 \
+	-drive if=pflash,format=raw,file.filename=/opt/homebrew/share/qemu/edk2-aarch64-code.fd,file.locking=off,readonly=on \
+	-drive if=pflash,file.filename=/usr/local/vm/efi_vars.fd \
 	-drive if=none,media=disk,id=VDA0,file.filename=/usr/local/vm/n1.qcow2,discard=unmap,detect-zeroes=unmap \
-	-name Linux -uuid "$UUID" -device virtio-rng-pci \
-	>/usr/local/vm/log-stdout.txt 2>/usr/local/vm/log-stderr.txt
+	>/usr/local/vm/log.txt 2>&1
